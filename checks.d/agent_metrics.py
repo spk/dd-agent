@@ -15,6 +15,7 @@ except ImportError:
 from checks import AgentCheck
 from checks.metric_types import MetricTypes
 from config import _is_affirmative
+from utils.platform import Platform
 
 MAX_THREADS_COUNT = 50
 MAX_COLLECTION_TIME = 30
@@ -113,6 +114,11 @@ class AgentMetrics(AgentCheck):
         return self._collector_payload, self._metric_context
 
     def check(self, instance):
+
+        if Platform.is_linux():
+            procfs_path = self.agentConfig.get('procfs_path', '/proc').rstrip('/')
+            psutil.PROCFS_PATH = procfs_path
+
         if self.in_developer_mode:
             stats, names_to_metric_types = self._psutil_config_to_stats(instance)
             self._register_psutil_metrics(stats, names_to_metric_types)
