@@ -656,7 +656,7 @@ class Collector(object):
                 payload['gohai'] = gohai_metadata
 
             payload['systemStats'] = get_system_stats(
-                proc_path=self.agentConfig.get('proc_override', '/proc').rstrip('/')
+                proc_path=self.agentConfig.get('procfs_path', '/proc').rstrip('/')
             )
             payload['meta'] = self._get_hostname_metadata()
 

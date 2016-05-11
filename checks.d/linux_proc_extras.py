@@ -31,7 +31,7 @@ class MoreUnixCheck(AgentCheck):
 
         prio_counts = defaultdict(int)
 
-        proc_location = self.agentConfig.get('proc_override', '/proc').rstrip('/')
+        proc_location = self.agentConfig.get('procfs_path', '/proc').rstrip('/')
 
         proc_path_map = {
             "inode_info": "sys/fs/inode-nr",

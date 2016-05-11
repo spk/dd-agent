@@ -143,7 +143,7 @@ class Network(AgentCheck):
                     self.rate(metric, self._parse_value(value.group(1)))
 
     def _check_linux(self, instance):
-        proc_location = self.agentConfig.get('proc_override', '/proc').rstrip('/')
+        proc_location = self.agentConfig.get('procfs_path', '/proc').rstrip('/')
         if self._collect_cx_state:
             try:
                 self.log.debug("Using `ss` to collect connection state")

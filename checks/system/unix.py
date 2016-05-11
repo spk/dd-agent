@@ -225,7 +225,7 @@ class Load(Check):
 
     def check(self, agentConfig):
         if Platform.is_linux():
-            proc_location = agentConfig.get('proc_override', '/proc').rstrip('/')
+            proc_location = agentConfig.get('procfs_path', '/proc').rstrip('/')
             try:
                 proc_loadavg = "{}/loadavg".format(proc_location)
                 with open(proc_loadavg, 'r') as load_avg:
@@ -288,7 +288,7 @@ class Memory(Check):
 
     def check(self, agentConfig):
         if Platform.is_linux():
-            proc_location = agentConfig.get('proc_override', '/proc').rstrip('/')
+            proc_location = agentConfig.get('procfs_path', '/proc').rstrip('/')
             try:
                 proc_meminfo = "{}/meminfo".format(proc_location)
                 with open(proc_meminfo, 'r') as mem_info:
