@@ -317,6 +317,13 @@ def get_histogram_percentiles(configstr=None):
     return result
 
 
+def clean_dd_url(url):
+    url = url.strip()
+    if not url.startswith('http'):
+        url = 'https://' + url
+    return url[:-1] if url.endswith('/') else url
+
+
 def get_config(parse_args=True, cfg_path=None, options=None):
     if parse_args:
         options, _ = get_parsed_args()
@@ -367,18 +374,47 @@ def get_config(parse_args=True, cfg_path=None, options=None):
         #
         # Core config
         #
-        if options is not None and options.use_forwarder:
+        if not config.has_option('Main', 'api_key'):
+            log.warning(u"No API key was found. Aborting.")
+            sys.exit(2)
+
+        if not config.has_option('Main', 'dd_url'):
+            log.warning(u"No dd_url was found. Aborting.")
+            sys.exit(2)
+
+        # Endpoints
+        dd_urls = map(clean_dd_url, config.get('Main', 'dd_url').split(','))
+        api_keys = map(lambda x: x.strip(), config.get('Main', 'api_key').split(','))
+
+        # endpoints is:
+        # {
+        #    'https://app.datadoghq.com': ['api_key_abc', 'api_key_def'],
+        #    'https://app.example.com': ['api_key_xyz']
+        # }
+        endpoints = {}
+        if len(dd_urls) == 1:
+            endpoints[dd_urls[0]] = api_keys
+        else:
+            assert len(dd_urls) == len(api_keys), 'Please provide one api_key for each dd_url'
+            for i, dd_url in enumerate(dd_urls):
+                endpoints[dd_url] = endpoints.get(dd_url, []) + [api_keys[i]]
+
+        agentConfig['endpoints'] = endpoints
+
+        # FIXME: For the legacy code out in the wild
+        agentConfig['api_key'] = api_keys[0]
+        agentConfig['dd_url'] = dd_urls[0]
+
+        # Forwarder or not forwarder
+        agentConfig['use_forwarder'] = options is not None and options.use_forwarder
+        if agentConfig['use_forwarder']:
             listen_port = 17123
             if config.has_option('Main', 'listen_port'):
                 listen_port = int(config.get('Main', 'listen_port'))
             agentConfig['dd_url'] = "http://{}:{}".format(agentConfig['bind_host'], listen_port)
-            agentConfig['use_forwarder'] = True
-        else:
-            agentConfig['use_forwarder'] = False
-            agentConfig['dd_url'] = options.dd_url or config.get('Main', 'dd_url')
-
-        if agentConfig['dd_url'].endswith('/'):
-            agentConfig['dd_url'] = agentConfig['dd_url'][:-1]
+        # FIXME: Legacy dd_url command line switch
+        elif options is not None and options.dd_url is not None:
+            agentConfig['dd_url'] = options.dd_url
 
         # Extra checks.d path
         # the linux directory is set by default
@@ -408,9 +444,6 @@ def get_config(parse_args=True, cfg_path=None, options=None):
             agentConfig['use_web_info_page'] = config.get('Main', 'use_web_info_page').lower() in ("yes", "true")
         else:
             agentConfig['use_web_info_page'] = True
-
-        # Which API key to use
-        agentConfig['api_key'] = config.get('Main', 'api_key')
 
         # local traffic only? Default to no
         agentConfig['non_local_traffic'] = False
