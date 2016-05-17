@@ -599,22 +599,26 @@ class Aggregator(object):
             if not packet.strip():
                 continue
 
-            if packet.startswith('_e'):
-                self.event_count += 1
-                event = self.parse_event_packet(packet)
-                self.event(**event)
-            elif packet.startswith('_sc'):
-                self.service_check_count += 1
-                service_check = self.parse_sc_packet(packet)
-                self.service_check(**service_check)
-            else:
-                self.count += 1
-                parsed_packets = self.parse_metric_packet(packet)
-                for name, value, mtype, tags, sample_rate in parsed_packets:
-                    hostname, device_name, tags = self._extract_magic_tags(tags)
-                    self.submit_metric(name, value, mtype, tags=tags, hostname=hostname,
-                        device_name=device_name, sample_rate=sample_rate)
-
+            try:
+                if packet.startswith('_e'):
+                    event = self.parse_event_packet(packet)
+                    self.event(**event)
+                    self.event_count += 1
+                elif packet.startswith('_sc'):
+                    service_check = self.parse_sc_packet(packet)
+                    self.service_check(**service_check)
+                    self.service_check_count += 1
+                else:
+                    parsed_packets = self.parse_metric_packet(packet)
+                    self.count += 1
+                    for name, value, mtype, tags, sample_rate in parsed_packets:
+                        hostname, device_name, tags = self._extract_magic_tags(tags)
+                        self.submit_metric(name, value, mtype, tags=tags, hostname=hostname,
+                                           device_name=device_name, sample_rate=sample_rate)
+            except (KeyboardInterrupt, SystemExit):
+                raise
+            except Exception as e:
+                log.error(e)
 
     def _extract_magic_tags(self, tags):
         """Magic tags (host, device) override metric hostname and device_name attributes"""
