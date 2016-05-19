@@ -140,7 +140,11 @@ class OpenStackProjectScope(object):
         try:
             auth_resp = cls.request_auth_token(auth_scope, identity, keystone_server_url, ssl_verify)
         except (requests.exceptions.HTTPError, requests.exceptions.Timeout, requests.exceptions.ConnectionError):
-            raise KeystoneUnreachable()
+            raise KeystoneUnreachable("Failed kaystone auth with identity:{id} scope:{scope} @{url}".format(
+                id=identity,
+                scope=auth_scope,
+                url=keystone_server_url)
+            )
 
         auth_token = auth_resp.headers.get('X-Subject-Token')
 
@@ -696,8 +700,9 @@ class OpenStackCheck(AgentCheck):
             try:
                 instance_scope = OpenStackProjectScope.from_config(self.init_config, instance)
                 self.service_check(self.IDENTITY_API_SC, AgentCheck.OK, tags=["server:%s" % self.init_config.get("keystone_server_url")])
-            except KeystoneUnreachable:
+            except KeystoneUnreachable as e:
                 self.warning("The agent could not contact the specified identity server at %s . Are you sure it is up at that address?" % self.init_config.get("keystone_server_url"))
+                self.log.debug("Problem grabbing auth token: %s", e)
                 self.service_check(self.IDENTITY_API_SC, AgentCheck.CRITICAL, tags=["server:%s" % self.init_config.get("keystone_server_url")])
 
                 # If Keystone is down/unreachable, we default the Nova and Neutron APIs to UNKNOWN since we cannot access the service catalog
