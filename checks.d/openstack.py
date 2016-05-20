@@ -137,14 +137,31 @@ class OpenStackProjectScope(object):
         auth_scope = cls.get_auth_scope(instance_config)
         identity = cls.get_user_identity(instance_config)
 
+        exception_msg = None
         try:
             auth_resp = cls.request_auth_token(auth_scope, identity, keystone_server_url, ssl_verify)
         except (requests.exceptions.HTTPError, requests.exceptions.Timeout, requests.exceptions.ConnectionError):
-            raise KeystoneUnreachable("Failed kaystone auth with identity:{id} scope:{scope} @{url}".format(
+            exception_msg = "Failed kaystone auth with identity:{id} scope:{scope} @{url}".format(
                 id=identity,
                 scope=auth_scope,
                 url=keystone_server_url)
-            )
+
+        if exception_msg:
+            try:
+                identity['user']['domain']['name'] = identity['user']['domain'].pop('id')
+
+                if 'domain' in auth_scope['project']:
+                    auth_scope['project']['domain']['name'] = auth_scope['project']['domain'].pop('id')
+                else:
+                    auth_scope['project']['name'] = auth_scope['project'].pop('id')
+                auth_resp = cls.request_auth_token(auth_scope, identity, keystone_server_url, ssl_verify)
+            except (requests.exceptions.HTTPError, requests.exceptions.Timeout, requests.exceptions.ConnectionError):
+                exception_msg = "{msg} and also gailed kaystone auth with identity:{id} scope:{scope} @{url}".format(
+                    msh=exception_msg,
+                    id=identity,
+                    scope=auth_scope,
+                    url=keystone_server_url)
+                raise KeystoneUnreachable(exception_msg)
 
         auth_token = auth_resp.headers.get('X-Subject-Token')
 
