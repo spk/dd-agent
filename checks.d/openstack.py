@@ -148,7 +148,7 @@ class OpenStackProjectScope(object):
 
         if exception_msg:
             try:
-                identity['user']['domain']['name'] = identity['user']['domain'].pop('id')
+                identity['password']['user']['domain']['name'] = identity['password']['user']['domain'].pop('id')
 
                 if 'domain' in auth_scope['project']:
                     auth_scope['project']['domain']['name'] = auth_scope['project']['domain'].pop('id')
