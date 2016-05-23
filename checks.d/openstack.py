@@ -155,12 +155,13 @@ class OpenStackProjectScope(object):
                 else:
                     auth_scope['project']['name'] = auth_scope['project'].pop('id')
                 auth_resp = cls.request_auth_token(auth_scope, identity, keystone_server_url, ssl_verify)
-            except (requests.exceptions.HTTPError, requests.exceptions.Timeout, requests.exceptions.ConnectionError):
-                exception_msg = "{msg} and also failed kaystone auth with identity:{id} scope:{scope} @{url}".format(
+            except (requests.exceptions.HTTPError, requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
+                exception_msg = "{msg} and also failed kaystone auth with identity:{id} scope:{scope} @{url}: {ex}".format(
                     msg=exception_msg,
                     id=identity,
                     scope=auth_scope,
-                    url=keystone_server_url)
+                    url=keystone_server_url,
+                    ex=e)
                 raise KeystoneUnreachable(exception_msg)
 
         auth_token = auth_resp.headers.get('X-Subject-Token')
