@@ -307,6 +307,14 @@ class DockerDaemon(AgentCheck):
 
             containers_by_id[container['Id']] = container
 
+            # grab pid
+            try:
+                inspect_dict = self.docker_client.inspect_container(container_name)
+                container['_pid'] = inspect_dict['State']['Pid']
+            except Exception as e:
+                self.log.debug("Unable to inspect Docker container: %s", e)
+
+
         for tags, count in running_containers_count.iteritems():
             self.gauge("docker.containers.running", count, tags=list(tags))
 
@@ -798,6 +806,7 @@ class DockerDaemon(AgentCheck):
                 path = os.path.join(proc_path, folder, 'cgroup')
                 with open(path, 'r') as f:
                     content = [line.strip().split(':') for line in f.readlines()]
+
                 selinux_policy = ''
                 path = os.path.join(proc_path, folder, 'attr', 'current')
                 if os.path.exists(path):
