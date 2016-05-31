@@ -560,19 +560,26 @@ class VSphereCheck(AgentCheck):
         elif obj_type == 'datacenter':
             dc_tag = "vsphere_datacenter:%s" % obj.name
             tags_copy.append(dc_tag)
-            for compute_resource in obj.hostFolder.childEntity:
-                # Skip non-compute resource
-                if not hasattr(compute_resource, 'host'):
-                    continue
-                self.pool.apply_async(
-                    self._cache_morlist_raw_atomic,
-                    args=(i_key, 'compute_resource', compute_resource, tags_copy, regexes, include_only_marked)
-                )
+
+            for resource in obj.hostFolder.childEntity:
+                # Resource pool
+                if isinstance(resource, vim.ClusterComputeResource):
+                    self.pool.apply_async(
+                        self._cache_morlist_raw_atomic,
+                        args=(i_key, 'compute_resource', resource, tags_copy, regexes)
+                    )
+
+                # Folder pool
+                if isinstance(resource, vim.Folder):
+                    self.pool.apply_async(
+                        self._cache_morlist_raw_atomic,
+                        args=(i_key, 'folder', resource, tags_copy, regexes)
+                    )
 
         elif obj_type == 'compute_resource':
-            if obj.__class__ == vim.ClusterComputeResource:
-                cluster_tag = "vsphere_cluster:%s" % obj.name
-                tags_copy.append(cluster_tag)
+            cluster_tag = "vsphere_cluster:%s" % obj.name
+            tags_copy.append(cluster_tag)
+
             for host in obj.host:
                 # Skip non-host
                 if not hasattr(host, 'vm'):
@@ -581,6 +588,18 @@ class VSphereCheck(AgentCheck):
                     self._cache_morlist_raw_atomic,
                     args=(i_key, 'host', host, tags_copy, regexes, include_only_marked)
                 )
+
+        elif obj_type == 'folder':
+            folder_tag = "vsphere_folder:%s" % obj.name
+            tags_copy.append(folder_tag)
+
+            for resource in obj.childEntity:
+                # Skip non compute resources
+                if isinstance(resource, vim.ClusterComputeResource):
+                    self.pool.apply_async(
+                        self._cache_morlist_raw_atomic,
+                        args=(i_key, 'compute_resource', resource, tags_copy, regexes)
+                    )
 
         elif obj_type == 'host':
             if regexes and regexes.get('host_include') is not None:
