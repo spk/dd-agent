@@ -527,8 +527,7 @@ class VSphereCheck(AgentCheck):
 
     @atomic_method
     def _cache_morlist_raw_atomic(
-            self, i_key, obj_type, obj, prev_tags, regexes=None, include_only_marked=False
-        ):
+            self, i_key, obj_type, obj, prev_tags, regexes=None, include_only_marked=False):
         """
         Work in progress.
         """
@@ -543,7 +542,7 @@ class VSphereCheck(AgentCheck):
             for resource in obj.childEntity:
                 self.pool.apply_async(
                     self._cache_morlist_raw_atomic,
-                    args=(i_key, None, resource, tags_copy, regexes)
+                    args=(i_key, None, resource, tags, regexes)
                 )
 
         elif isinstance(obj_type, vim.Datacenter):
@@ -552,7 +551,7 @@ class VSphereCheck(AgentCheck):
             for resource in obj.hostFolder.childEntity:
                 self.pool.apply_async(
                     self._cache_morlist_raw_atomic,
-                    args=(i_key, None, resource, tags_copy, regexes)
+                    args=(i_key, None, resource, tags, regexes)
                 )
 
         elif isinstance(obj_type, vim.ClusterComputeResource):
@@ -565,7 +564,7 @@ class VSphereCheck(AgentCheck):
 
                 self.pool.apply_async(
                     self._cache_morlist_raw_atomic,
-                    args=(i_key, None, host, tags_copy, regexes, include_only_marked)
+                    args=(i_key, None, host, tags, regexes, include_only_marked)
                 )
 
         else:
