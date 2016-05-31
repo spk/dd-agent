@@ -525,19 +525,18 @@ class VSphereCheck(AgentCheck):
         return external_host_tags
 
     def _cache_morlist_raw_atomic(
-            self, i_key, obj_type, obj, prev_tags, regexes=None, include_only_marked=False):
+            self, i_key, obj_type, obj, tags, regexes=None, include_only_marked=False):
         """
         Work in progress.
         """
         @atomic_method
-        def browse_mor(obj, prev_tags):
+        def browse_mor(obj, prev_tags, depth):
             self.log.debug(
                 u"job_atomic: Exploring MOR %s: name=%s, class=%s",
                 obj, obj.name, obj.__class__
             )
 
             tags = list(prev_tags)
-            depth = 0
 
             # Folder
             if isinstance(obj, vim.Folder):
@@ -548,7 +547,7 @@ class VSphereCheck(AgentCheck):
                 for resource in obj.childEntity:
                     self.pool.apply_async(
                         browse_mor,
-                        args=(resource, tags)
+                        args=(resource, tags, depth + 1)
                     )
 
             # Datacenter
@@ -558,7 +557,7 @@ class VSphereCheck(AgentCheck):
                 for resource in obj.hostFolder.childEntity:
                     self.pool.apply_async(
                         browse_mor,
-                        args=(resource, tags)
+                        args=(resource, tags, depth + 1)
                     )
 
             # ClusterComputeResource
@@ -572,28 +571,28 @@ class VSphereCheck(AgentCheck):
 
                     self.pool.apply_async(
                         browse_mor,
-                        args=(host, tags)
+                        args=(host, tags, depth + 1)
                     )
 
             # Host
-            elif isinstance(obj, vim.HostSystem):
-                if regexes and regexes.get('host_include') is not None:
-                    match = re.search(regexes['host_include'], obj.name)
-                    if not match:
-                        self.log.debug(u"Filtered out VM {0} because of host_include_only_regex".format(obj.name))
-                        return
+            # elif isinstance(obj, vim.HostSystem):
+            #     if regexes and regexes.get('host_include') is not None:
+            #         match = re.search(regexes['host_include'], obj.name)
+            #         if not match:
+            #             self.log.debug(u"Filtered out VM {0} because of host_include_only_regex".format(obj.name))
+            #             return
 
-                watched_mor = dict(mor_type='host', mor=obj, hostname=obj.name, tags=tags + [u"vsphere_type:host"])
-                self.morlist_raw[i_key].append(watched_mor)
+            #     watched_mor = dict(mor_type='host', mor=obj, hostname=obj.name, tags=tags + [u"vsphere_type:host"])
+            #     self.morlist_raw[i_key].append(watched_mor)
 
-                tags.append(u"vsphere_host:%s".format(obj.name))
-                for vm in obj.vm:
-                    if vm.runtime.powerState != 'poweredOn':
-                        continue
-                    self.pool.apply_async(
-                        browse_mor,
-                        args=(vm, tags)
-                    )
+            #     tags.append(u"vsphere_host:%s".format(obj.name))
+            #     for vm in obj.vm:
+            #         if vm.runtime.powerState != 'poweredOn':
+            #             continue
+            #         self.pool.apply_async(
+            #             browse_mor,
+            #             args=(vm, tags, depth + 1)
+            #         )
 
             else:
                 self.log.error(u"Unrecognized object %s", obj)
@@ -601,7 +600,7 @@ class VSphereCheck(AgentCheck):
         # Init recursion
         self.pool.apply_async(
             browse_mor,
-            args=(obj, prev_tags)
+            args=(obj, tags, 0)
         )
 
     @atomic_method
