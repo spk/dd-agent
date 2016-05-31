@@ -118,7 +118,7 @@ use_mount: no
 #
 # In some environments we may have the procfs file system mounted in a 
 # miscellaneous location. The procfs_path configuration paramenter allows
-# us to override the standard default localtion '/proc'
+# us to override the standard default location '/proc'
 # procfs_path: /proc
 
 # ========================================================================== #

@@ -595,7 +595,7 @@ def get_system_stats(proc_path=None):
         if Platform.is_linux(platf):
             if not proc_path:
                 proc_path = "/proc"
-            proc_cpuinfo = "{}/cpuinfo".format(proc_path.rstrip('/'))
+            proc_cpuinfo = os.path.join(proc_path,'cpuinfo')
             output, _, _ = get_subprocess_output(['grep', 'model name', proc_cpuinfo], log)
             systemStats['cpuCores'] = len(output.splitlines())
 

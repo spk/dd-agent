@@ -10,6 +10,7 @@ import struct
 from urlparse import urljoin
 
 # project
+from config import get_config
 from util import check_yaml
 from utils.checkfiles import get_conf_path
 from utils.http import retrieve_json
@@ -33,6 +34,7 @@ class KubeUtil():
     DEFAULT_CADVISOR_PORT = 4194
     DEFAULT_KUBELET_PORT = 10255
     DEFAULT_MASTER_PORT = 8080
+    CONFIG = get_config(parse_args=True)
 
     def __init__(self):
         config_file_path = get_conf_path(KUBERNETES_CHECK_NAME)
@@ -87,7 +89,8 @@ class KubeUtil():
     @classmethod
     def _get_default_router(cls):
         try:
-            with open('/proc/net/route') as f:
+            procfs_netroute = os.path.join(cls.CONFIG.get('procfs_path','/proc'), 'net', 'route')
+            with open(procfs_netroute) as f:
                 for line in f.readlines():
                     fields = line.strip().split()
                     if fields[1] == '00000000':

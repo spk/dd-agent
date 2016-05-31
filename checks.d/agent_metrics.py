@@ -115,10 +115,6 @@ class AgentMetrics(AgentCheck):
 
     def check(self, instance):
 
-        if Platform.is_linux():
-            procfs_path = self.agentConfig.get('procfs_path', '/proc').rstrip('/')
-            psutil.PROCFS_PATH = procfs_path
-
         if self.in_developer_mode:
             stats, names_to_metric_types = self._psutil_config_to_stats(instance)
             self._register_psutil_metrics(stats, names_to_metric_types)
