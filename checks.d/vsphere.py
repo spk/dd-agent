@@ -509,7 +509,6 @@ class VSphereCheck(AgentCheck):
 
         return wanted_metrics
 
-
     def get_external_host_tags(self):
         """ Returns a list of tags for every host that is detected by the vSphere
         integration.
@@ -525,52 +524,85 @@ class VSphereCheck(AgentCheck):
 
         return external_host_tags
 
-    @atomic_method
     def _cache_morlist_raw_atomic(
             self, i_key, obj_type, obj, prev_tags, regexes=None, include_only_marked=False):
         """
         Work in progress.
         """
-        self.log.debug(
-            u"job_atomic: Exploring MOR %s: name=%s, class=%s",
-            obj, obj.name, obj.__class__
+        @atomic_method
+        def browse_mor(obj, prev_tags):
+            self.log.debug(
+                u"job_atomic: Exploring MOR %s: name=%s, class=%s",
+                obj, obj.name, obj.__class__
+            )
+
+            tags = list(prev_tags)
+            depth = 0
+
+            # Folder
+            if isinstance(obj, vim.Folder):
+                # Do not tag with root folder
+                if depth:
+                    tags.append(obj.name)
+
+                for resource in obj.childEntity:
+                    self.pool.apply_async(
+                        browse_mor,
+                        args=(resource, tags)
+                    )
+
+            # Datacenter
+            elif isinstance(obj, vim.Datacenter):
+                tags.append(u"vsphere_datacenter:{0}".format(obj.name))
+
+                for resource in obj.hostFolder.childEntity:
+                    self.pool.apply_async(
+                        browse_mor,
+                        args=(resource, tags)
+                    )
+
+            # ClusterComputeResource
+            elif isinstance(obj, vim.ClusterComputeResource):
+                tags.append(u"vsphere_cluster:{0}".format(obj.name))
+
+                for host in obj.host:
+                    # Skip non-host
+                    if not hasattr(host, 'vm'):
+                        continue
+
+                    self.pool.apply_async(
+                        browse_mor,
+                        args=(host, tags)
+                    )
+
+            # Host
+            elif isinstance(obj, vim.HostSystem):
+                if regexes and regexes.get('host_include') is not None:
+                    match = re.search(regexes['host_include'], obj.name)
+                    if not match:
+                        self.log.debug(u"Filtered out VM {0} because of host_include_only_regex".format(obj.name))
+                        return
+
+                watched_mor = dict(mor_type='host', mor=obj, hostname=obj.name, tags=tags + [u"vsphere_type:host"])
+                self.morlist_raw[i_key].append(watched_mor)
+
+                tags.append(u"vsphere_host:%s".format(obj.name))
+                for vm in obj.vm:
+                    if vm.runtime.powerState != 'poweredOn':
+                        continue
+                    self.pool.apply_async(
+                        browse_mor,
+                        args=(vm, tags)
+                    )
+
+            else:
+                self.log.error(u"Unrecognized object %s", obj)
+
+        # Init recursion
+        self.pool.apply_async(
+            browse_mor,
+            args=(obj, prev_tags)
         )
-
-        tags = list(prev_tags)
-
-        # Switch on the object class
-        if isinstance(obj, vim.Folder):
-            tags.append(obj.name)
-            for resource in obj.childEntity:
-                self.pool.apply_async(
-                    self._cache_morlist_raw_atomic,
-                    args=(i_key, None, resource, tags, regexes)
-                )
-
-        elif isinstance(obj, vim.Datacenter):
-            tags.append(u"vsphere_datacenter:{0}".format(obj.name))
-
-            for resource in obj.hostFolder.childEntity:
-                self.pool.apply_async(
-                    self._cache_morlist_raw_atomic,
-                    args=(i_key, None, resource, tags, regexes)
-                )
-
-        elif isinstance(obj, vim.ClusterComputeResource):
-            tags.append(u"vsphere_cluster:{0}".format(obj.name))
-
-            for host in obj.host:
-                # Skip non-host
-                if not hasattr(host, 'vm'):
-                    continue
-
-                self.pool.apply_async(
-                    self._cache_morlist_raw_atomic,
-                    args=(i_key, None, host, tags, regexes, include_only_marked)
-                )
-
-        else:
-            self.log.error(u"Unrecognized object %s", obj)
 
     @atomic_method
     def _cache_morlist_raw_atomic_old(self, i_key, obj_type, obj, tags, regexes=None, include_only_marked=False):
@@ -719,10 +751,12 @@ class VSphereCheck(AgentCheck):
             'vm_include': instance.get('vm_include_only_regex')
         }
         include_only_marked = _is_affirmative(instance.get('include_only_marked', False))
-        self.pool.apply_async(
-            self._cache_morlist_raw_atomic,
-            args=(i_key, 'rootFolder', root_folder, [instance_tag], regexes, include_only_marked)
-        )
+
+        # self.pool.apply_async(
+        #     self._cache_morlist_raw_atomic,
+        #     args=(i_key, 'rootFolder', root_folder, [instance_tag], regexes, include_only_marked)
+        # )
+        self._cache_morlist_raw_atomic(i_key, 'rootFolder', root_folder, [instance_tag], regexes, include_only_marked)
         self.cache_times[i_key][MORLIST][LAST] = time.time()
 
     @atomic_method
