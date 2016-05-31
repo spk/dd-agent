@@ -526,9 +526,11 @@ class VSphereCheck(AgentCheck):
         return external_host_tags
 
     @atomic_method
-    def _cache_morlist_raw_atomic(self, i_key, obj_type=None, obj, prev_tags, regexes=None, include_only_marked=False):
+    def _cache_morlist_raw_atomic(
+            self, i_key, obj_type, obj, prev_tags, regexes=None, include_only_marked=False
+        ):
         """
-        Work in progress
+        Work in progress.
         """
         self.log.debug(u"job_atomic: Exploring MOR %s (class=%s)", obj, obj.__class__)
 
