@@ -531,12 +531,16 @@ class VSphereCheck(AgentCheck):
         """
         Work in progress.
         """
-        self.log.debug(u"job_atomic: Exploring MOR %s (class=%s)", obj, obj.__class__)
+        self.log.debug(
+            u"job_atomic: Exploring MOR %s: name=%s, class=%s",
+            obj, obj.name, obj.__class__
+        )
 
         tags = list(prev_tags)
 
-        # Switch on the object type
+        # Switch on the object class
         if isinstance(obj, vim.Folder):
+            tags.append(obj.name)
             for resource in obj.childEntity:
                 self.pool.apply_async(
                     self._cache_morlist_raw_atomic,
@@ -544,7 +548,7 @@ class VSphereCheck(AgentCheck):
                 )
 
         elif isinstance(obj, vim.Datacenter):
-            tags.append("vsphere_datacenter:%s" % obj.name)
+            tags.append(u"vsphere_datacenter:{0}".format(obj.name))
 
             for resource in obj.hostFolder.childEntity:
                 self.pool.apply_async(
@@ -553,7 +557,7 @@ class VSphereCheck(AgentCheck):
                 )
 
         elif isinstance(obj, vim.ClusterComputeResource):
-            tags.append("vsphere_cluster:%s" % obj.name)
+            tags.append(u"vsphere_cluster:{0}".format(obj.name))
 
             for host in obj.host:
                 # Skip non-host
