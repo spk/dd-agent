@@ -588,6 +588,7 @@ class VSphereCheck(AgentCheck):
                 tags.append(u"vsphere_host:%s".format(obj.name))
                 self.log.debug(u"Found %s VMs", len(obj.vm))
                 for vm in obj.vm:
+                    self.log.debug(u"VM %s %s", vm.__class__, vm.runtime.powerState)
                     if vm.runtime.powerState != 'poweredOn':
                         continue
                     self.pool.apply_async(
