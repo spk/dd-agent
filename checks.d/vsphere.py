@@ -289,6 +289,7 @@ class VSphereEvent(object):
         self.payload['host'] = self.raw_event.vm.name
         return self.payload
 
+
 def atomic_method(method):
     """ Decorator to catch the exceptions that happen in detached thread atomic tasks
     and display them in the logs.
@@ -299,6 +300,7 @@ def atomic_method(method):
         except Exception:
             args[0].exceptionq.put("A worker thread crashed:\n" + traceback.format_exc())
     return wrapper
+
 
 class VSphereCheck(AgentCheck):
     """ Get performance metrics from a vCenter server and upload them to Datadog
@@ -524,7 +526,51 @@ class VSphereCheck(AgentCheck):
         return external_host_tags
 
     @atomic_method
-    def _cache_morlist_raw_atomic(self, i_key, obj_type, obj, tags, regexes=None, include_only_marked=False):
+    def _cache_morlist_raw_atomic(self, i_key, obj_type=None, obj, prev_tags, regexes=None, include_only_marked=False):
+        """
+        Work in progress
+        """
+        self.log.debug(u"job_atomic: Exploring MOR %s (class=%s)", obj, obj.__class__)
+
+        tags = list(prev_tags)
+
+        # Switch on the object type
+        obj_type = obj.__class__
+
+        if isinstance(obj_type, vim.Folder):
+            for resource in obj.childEntity:
+                self.pool.apply_async(
+                    self._cache_morlist_raw_atomic,
+                    args=(i_key, None, resource, tags_copy, regexes)
+                )
+
+        elif isinstance(obj_type, vim.Datacenter):
+            tags.append("vsphere_datacenter:%s" % obj.name)
+
+            for resource in obj.hostFolder.childEntity:
+                self.pool.apply_async(
+                    self._cache_morlist_raw_atomic,
+                    args=(i_key, None, resource, tags_copy, regexes)
+                )
+
+        elif isinstance(obj_type, vim.ClusterComputeResource):
+            tags.append("vsphere_cluster:%s" % obj.name)
+
+            for host in obj.host:
+                # Skip non-host
+                if not hasattr(host, 'vm'):
+                    continue
+
+                self.pool.apply_async(
+                    self._cache_morlist_raw_atomic,
+                    args=(i_key, None, host, tags_copy, regexes, include_only_marked)
+                )
+
+        else:
+            self.log.error(u"Unrecognized object %s", obj)
+
+    @atomic_method
+    def _cache_morlist_raw_atomic_old(self, i_key, obj_type, obj, tags, regexes=None, include_only_marked=False):
         """ Compute tags for a single node in the vCenter rootFolder
         and queue other such jobs for children nodes.
         Usual hierarchy:
