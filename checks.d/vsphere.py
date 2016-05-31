@@ -575,24 +575,24 @@ class VSphereCheck(AgentCheck):
                     )
 
             # Host
-            # elif isinstance(obj, vim.HostSystem):
-            #     if regexes and regexes.get('host_include') is not None:
-            #         match = re.search(regexes['host_include'], obj.name)
-            #         if not match:
-            #             self.log.debug(u"Filtered out VM {0} because of host_include_only_regex".format(obj.name))
-            #             return
+            elif isinstance(obj, vim.HostSystem):
+                if regexes and regexes.get('host_include') is not None:
+                    match = re.search(regexes['host_include'], obj.name)
+                    if not match:
+                        self.log.debug(u"Filtered out VM {0} because of host_include_only_regex".format(obj.name))
+                        return
 
-            #     watched_mor = dict(mor_type='host', mor=obj, hostname=obj.name, tags=tags + [u"vsphere_type:host"])
-            #     self.morlist_raw[i_key].append(watched_mor)
+                watched_mor = dict(mor_type='host', mor=obj, hostname=obj.name, tags=tags + [u"vsphere_type:host"])
+                self.morlist_raw[i_key].append(watched_mor)
 
-            #     tags.append(u"vsphere_host:%s".format(obj.name))
-            #     for vm in obj.vm:
-            #         if vm.runtime.powerState != 'poweredOn':
-            #             continue
-            #         self.pool.apply_async(
-            #             browse_mor,
-            #             args=(vm, tags, depth + 1)
-            #         )
+                tags.append(u"vsphere_host:%s".format(obj.name))
+                for vm in obj.vm:
+                    if vm.runtime.powerState != 'poweredOn':
+                        continue
+                    self.pool.apply_async(
+                        browse_mor,
+                        args=(vm, tags, depth + 1)
+                    )
 
             else:
                 self.log.error(u"Unrecognized object %s", obj)
