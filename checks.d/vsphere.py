@@ -536,16 +536,14 @@ class VSphereCheck(AgentCheck):
         tags = list(prev_tags)
 
         # Switch on the object type
-        obj_type = obj.__class__
-
-        if isinstance(obj_type, vim.Folder):
+        if isinstance(obj, vim.Folder):
             for resource in obj.childEntity:
                 self.pool.apply_async(
                     self._cache_morlist_raw_atomic,
                     args=(i_key, None, resource, tags, regexes)
                 )
 
-        elif isinstance(obj_type, vim.Datacenter):
+        elif isinstance(obj, vim.Datacenter):
             tags.append("vsphere_datacenter:%s" % obj.name)
 
             for resource in obj.hostFolder.childEntity:
@@ -554,7 +552,7 @@ class VSphereCheck(AgentCheck):
                     args=(i_key, None, resource, tags, regexes)
                 )
 
-        elif isinstance(obj_type, vim.ClusterComputeResource):
+        elif isinstance(obj, vim.ClusterComputeResource):
             tags.append("vsphere_cluster:%s" % obj.name)
 
             for host in obj.host:
